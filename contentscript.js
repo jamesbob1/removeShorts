@@ -29,8 +29,6 @@ function newSection(section) {
         let el = video.querySelector("ytd-thumbnail-overlay-time-status-renderer");
         if (el != null)
             newVideo(el);
-        else
-            break;
     }
 }
 
