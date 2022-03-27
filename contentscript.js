@@ -49,15 +49,16 @@ function waitForSectionsContainerToLoad(page) {
     let checkExist = setInterval(function () {
         let sectionsContainer = document.querySelector("ytd-section-list-renderer > #contents");
         if (sectionsContainer !== null) {
+            clearInterval(checkExist);
+
             [...sectionsContainer.children].filter((node) => node.nodeName === "YTD-ITEM-SECTION-RENDERER").forEach(newSection);
 
             let observer = new MutationObserver(sectionsContainerObservered);
             observer.observe(sectionsContainer, {
                 childList: true
             });
-            clearInterval(checkExist);
         }
-    }, 100);
+    }, 200);
 }
 
 function pageManagerUpdate(mutations) {
@@ -65,7 +66,7 @@ function pageManagerUpdate(mutations) {
 
     for (let page of pageManager.children) {
         if (page.tagName == "YTD-BROWSE" && page.baseURI == "https://www.youtube.com/feed/subscriptions") {
-            console.log("SHORTS remover NOW!!!!");
+            console.log("SHORTS remover NOW!");
             pageManagerObserver.disconnect();
             waitForSectionsContainerToLoad(page);
             break;
