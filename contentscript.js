@@ -1,11 +1,22 @@
 /*jshint esversion: 6*/
 
+let videos = [];
+let hideShortsState;
+
+chrome.storage.sync.get("removeShorts", ({ state }) => {
+    hideShortsState = state;
+});
+
 
 function newVideo(timeOverlay) {
     let video = timeOverlay.parentNode.parentNode.parentNode.parentNode.parentNode;
     if (timeOverlay.getAttribute("overlay-style") == "SHORTS")
-        video.hidden = true;
-}
+    {
+        video.hidden = hideShortsState;
+        videos.push(video);
+    }
+        
+}   
 
 function sectionsObservered(mutations) {
     for (let mutation of mutations) {
@@ -73,8 +84,22 @@ function pageManagerUpdate(mutations) {
 }
 
 
+
 let pageManager = document.getElementById("page-manager");
 let pageManagerObserver = new MutationObserver(pageManagerUpdate);
 pageManagerObserver.observe(pageManager, {
     childList: true
 });
+
+
+chrome.runtime.onMessage.addListener(request => {
+    if(request.removeShortsSwitchMessage)
+    {
+        hideShortsState = request.removeShortsSwitchMessage.state;
+        videos.forEach(video=>{
+            video.hidden = hideShortsState;
+        });
+    }
+    return true;
+    }
+  );
