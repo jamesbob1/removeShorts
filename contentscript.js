@@ -3,10 +3,9 @@
 let videos = [];
 let hideShortsState;
 
-chrome.storage.sync.get("removeShorts", ({ state }) => {
-    hideShortsState = state;
+chrome.storage.sync.get(["removeShorts"], result => {
+    hideShortsState = result.removeShorts;
 });
-
 
 function newVideo(timeOverlay) {
     let video = timeOverlay.parentNode.parentNode.parentNode.parentNode.parentNode;
@@ -56,10 +55,10 @@ function sectionsContainerObservered(mutations) {
 
 function waitForSectionsContainerToLoad(page) {
     let checkExist = setInterval(function () {
-        let sectionsContainer = document.querySelector("ytd-section-list-renderer > #contents");
+        let sectionsContainer = document.querySelector("ytd-section-list-renderer[page-subtype='subscriptions'] > #contents");
         if (sectionsContainer !== null) {
             clearInterval(checkExist);
-
+            
             [...sectionsContainer.children].filter((node) => node.nodeName === "YTD-ITEM-SECTION-RENDERER").forEach(newSection);
 
             let observer = new MutationObserver(sectionsContainerObservered);
@@ -75,15 +74,13 @@ function pageManagerUpdate(mutations) {
 
     for (let page of pageManager.children) {
         if (page.tagName == "YTD-BROWSE" && page.baseURI == "https://www.youtube.com/feed/subscriptions") {
-            console.log("SHORTS remover NOW!");
+            console.log("SHORTS remover active!");
             pageManagerObserver.disconnect();
             waitForSectionsContainerToLoad(page);
             break;
         }
     }
 }
-
-
 
 let pageManager = document.getElementById("page-manager");
 let pageManagerObserver = new MutationObserver(pageManagerUpdate);
