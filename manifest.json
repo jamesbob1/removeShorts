@@ -20,7 +20,7 @@
             "run_at": "document_end"
         }
     ],
-    "permissions": ["storage","tabs"],
+    "permissions": ["storage"],
     "action": {
         "default_popup": "popup.html",
         "default_icon": {

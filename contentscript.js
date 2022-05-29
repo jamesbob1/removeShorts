@@ -7,6 +7,13 @@ chrome.storage.sync.get(["removeShorts"], result => {
     hideShortsState = result.removeShorts;
 });
 
+function setVideosVisibility(state) {
+    videos.forEach(video=>{
+        video.hidden = state;
+    });
+    hideShortsState = state;
+}
+
 function newVideo(timeOverlay) {
     let video = timeOverlay.parentNode.parentNode.parentNode.parentNode.parentNode;
     if (timeOverlay.getAttribute("overlay-style") == "SHORTS")
@@ -70,10 +77,8 @@ function waitForSectionsContainerToLoad(page) {
 }
 
 function pageManagerUpdate(mutations) {
-    pages = pageManager.children;
-
     for (let page of pageManager.children) {
-        if (page.tagName == "YTD-BROWSE" && page.baseURI == "https://www.youtube.com/feed/subscriptions") {
+        if (page.tagName == "YTD-BROWSE") {
             console.log("SHORTS remover active!");
             pageManagerObserver.disconnect();
             waitForSectionsContainerToLoad(page);
@@ -88,15 +93,6 @@ pageManagerObserver.observe(pageManager, {
     childList: true
 });
 
-
-chrome.runtime.onMessage.addListener(request => {
-    if(request.removeShortsSwitchMessage)
-    {
-        hideShortsState = request.removeShortsSwitchMessage.state;
-        videos.forEach(video=>{
-            video.hidden = hideShortsState;
-        });
-    }
-    return true;
-    }
-  );
+chrome.storage.sync.onChanged.addListener(function (changes, namespace) {
+   setVideosVisibility(changes.removeShorts.newValue);
+});
