@@ -24,6 +24,8 @@ function newVideo(timeOverlay) {
         
 }   
 
+//ytd-grid-video-renderer
+
 function sectionsObservered(mutations) {
     for (let mutation of mutations) {
         if (mutation.target.tagName == "YTD-THUMBNAIL-OVERLAY-TIME-STATUS-RENDERER")
@@ -32,20 +34,26 @@ function sectionsObservered(mutations) {
 }
 
 function newSection(section) {
-    let videosContainer = section.querySelector("#items");
-    let videos = videosContainer.children;
-
-    let observer = new MutationObserver(sectionsObservered);
-    observer.observe(videosContainer, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["overlay-style"]
-    });
-
-    for (let video of videos) {
-        let el = video.querySelector("ytd-thumbnail-overlay-time-status-renderer");
-        if (el != null)
-            newVideo(el);
+    sectionType = [...section.querySelector("#contents").children].map(e=>e.tagName).filter((n)=> n.toLowerCase().startsWith("ytd"))[0];
+    if (sectionType == "YTD-SHELF-RENDERER"){
+        let videosContainer = section.querySelector("#items");
+        let observer = new MutationObserver(sectionsObservered);
+        
+        observer.observe(videosContainer, {
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["overlay-style"]
+        });
+        
+        let videos = videosContainer.children;
+        for (let video of videos) {
+            let el = video.querySelector("ytd-thumbnail-overlay-time-status-renderer");
+            if (el != null)
+                newVideo(el);
+        }
+    }
+    else{
+        console.alert(`unknow section ${sectionType}`);
     }
 }
 
@@ -77,22 +85,27 @@ function waitForSectionsContainerToLoad(page) {
 }
 
 function pageManagerUpdate(mutations) {
-    for (let page of pageManager.children) {
-        if (page.tagName == "YTD-BROWSE") {
-            console.log("SHORTS remover active!");
-            pageManagerObserver.disconnect();
-            waitForSectionsContainerToLoad(page);
-            break;
+    for (let mutation of mutations) {
+        for (let page of mutation.addedNodes) {
+            if (page.tagName == "YTD-BROWSE") {
+                console.log("SHORTS remover active!");
+                pageManagerObserver.disconnect();
+                waitForSectionsContainerToLoad(page);
+                break;
+            }
         }
     }
 }
 
 let pageManager = document.getElementById("page-manager");
 let pageManagerObserver = new MutationObserver(pageManagerUpdate);
+
 pageManagerObserver.observe(pageManager, {
     childList: true
 });
 
 chrome.storage.sync.onChanged.addListener(function (changes, namespace) {
-   setVideosVisibility(changes.removeShorts.newValue);
+    setVideosVisibility(changes.removeShorts.newValue);
 });
+
+
