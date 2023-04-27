@@ -1,5 +1,6 @@
 /*jshint esversion: 6*/
 
+
 let videos = [];
 let hideShortsState;
 
@@ -8,104 +9,134 @@ chrome.storage.sync.get(["removeShorts"], result => {
 });
 
 function setVideosVisibility(state) {
-    videos.forEach(video=>{
+    videos.forEach(video => {
         video.hidden = state;
     });
     hideShortsState = state;
 }
 
+// Called for every new video
 function newVideo(timeOverlay) {
     let video = timeOverlay.parentNode.parentNode.parentNode.parentNode.parentNode;
-    if (timeOverlay.getAttribute("overlay-style") == "SHORTS")
-    {
+    if (timeOverlay.getAttribute("overlay-style") == "SHORTS") {
         video.hidden = hideShortsState;
         videos.push(video);
     }
-        
-}   
 
-//ytd-grid-video-renderer
-
-function sectionsObservered(mutations) {
-    for (let mutation of mutations) {
-        if (mutation.target.tagName == "YTD-THUMBNAIL-OVERLAY-TIME-STATUS-RENDERER")
-            newVideo(mutation.target);
-    }
 }
 
+// Called when the addpage is loaded.
 function newSection(section) {
-    sectionType = [...section.querySelector("#contents").children].map(e=>e.tagName).filter((n)=> n.toLowerCase().startsWith("ytd"))[0];
-    if (sectionType == "YTD-SHELF-RENDERER"){
-        let videosContainer = section.querySelector("#items");
-        let observer = new MutationObserver(sectionsObservered);
-        
-        observer.observe(videosContainer, {
-            subtree: true,
-            attributes: true,
-            attributeFilter: ["overlay-style"]
-        });
-        
-        let videos = videosContainer.children;
-        for (let video of videos) {
-            let el = video.querySelector("ytd-thumbnail-overlay-time-status-renderer");
-            if (el != null)
-                newVideo(el);
-        }
+    console.assert(section != null);
+
+    if (section.nodeName !== "YTD-ITEM-SECTION-RENDERER") {
+        console.log(`unsupported section ${section.nodeName}`);
+        return;
     }
-    else{
-        console.alert(`unknow section ${sectionType}`);
+
+    let itemsContainer = section.querySelector("#items")
+    console.assert(itemsContainer != null, "itemsContainer is null")
+
+    console.log(itemsContainer.children.length)
+
+    // Updates when a videos load.
+    let observer = new MutationObserver(mutations => {
+        for (let mutation of mutations) {
+            if (mutation.target.tagName == "YTD-THUMBNAIL-OVERLAY-TIME-STATUS-RENDERER")
+                newVideo(mutation.target);
+        }
+        //todo:close observer
+    });
+
+    observer.observe(itemsContainer, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["overlay-style"]
+    });
+
+    let sectionVideos = itemsContainer.children;
+    for (let video of sectionVideos) {
+        let el = video.querySelector("ytd-thumbnail-overlay-time-status-renderer");
+        if (el != null)
+            newVideo(el);
     }
 }
 
-function sectionsContainerObservered(mutations) {
-    for (let mutation of mutations) {
-        if (mutation.type === "childList") {
-            for (let node of mutation.addedNodes) {
-                if (node.nodeName === "YTD-ITEM-SECTION-RENDERER")
-                    newSection(node);
+// Called when the added page is loaded.
+function pageLoaded(pageSectionsContainer) {
+    console.assert(pageSectionsContainer != null);
+
+    for (let section of pageSectionsContainer.children) {
+        newSection(section)
+    }
+
+    // Updates when a new section is added.
+    let pageSectionsContainerObserver = new MutationObserver(mutations => {
+        for (let mutation of mutations) {
+            if (mutation.type === "childList") {
+                mutation.addedNodes.forEach(newSection)
             }
         }
+    });
+
+    pageSectionsContainerObserver.observe(pageSectionsContainer, {
+        childList: true
+    })
+}
+
+
+// Called when a new page is added
+function newPage(page) {
+    console.assert(page != null, "page is null");
+
+    if (!(page.tagName == "YTD-BROWSE" && page.getAttribute("page-subtype") == "subscriptions")) {
+        console.log(`unsupported page ${page.nodeName}`);
+        return;
     }
+
+    console.log("SHORTS remover active!");
+
+    let pagePrimary = page.querySelector("#primary");
+    let contentContainer = pagePrimary.querySelector("ytd-section-list-renderer > #contents")
+
+    if (contentContainer !== null) {
+        pageLoaded(contentContainer);
+        return;
+    }
+
+    //Updates when the page is loaded.
+    let pageLoadedObserver = new MutationObserver(_ => {
+        pageLoaded(pagePrimary.querySelector("ytd-section-list-renderer > #contents"));
+        pageLoadedObserver.disconnect()
+    });
+
+    pageLoadedObserver.observe(pagePrimary, {
+        childList: true
+    });
+
 }
 
-function waitForSectionsContainerToLoad(page) {
-    let checkExist = setInterval(function () {
-        let sectionsContainer = document.querySelector("ytd-section-list-renderer[page-subtype='subscriptions'] > #contents");
-        if (sectionsContainer !== null) {
-            clearInterval(checkExist);
-            
-            [...sectionsContainer.children].filter((node) => node.nodeName === "YTD-ITEM-SECTION-RENDERER").forEach(newSection);
+function ListenrForPages(pageManager) {
+    console.warn(pageManager != null, "Page manager isn't available");
 
-            let observer = new MutationObserver(sectionsContainerObservered);
-            observer.observe(sectionsContainer, {
-                childList: true
-            });
-        }
-    }, 200);
-}
-
-function pageManagerUpdate(mutations) {
-    for (let mutation of mutations) {
-        for (let page of mutation.addedNodes) {
-            if (page.tagName == "YTD-BROWSE") {
-                console.log("SHORTS remover active!");
-                pageManagerObserver.disconnect();
-                waitForSectionsContainerToLoad(page);
-                break;
+    // Updates when a new page is added.
+    let pageManagerObserver = new MutationObserver(mutations => {
+        for (let mutation of mutations) {
+            for (let page of mutation.addedNodes) {
+                newPage(page);
             }
         }
-    }
+    });
+
+    pageManagerObserver.observe(pageManager, {
+        childList: true
+    });
 }
 
-let pageManager = document.getElementById("page-manager");
-let pageManagerObserver = new MutationObserver(pageManagerUpdate);
 
-pageManagerObserver.observe(pageManager, {
-    childList: true
-});
+let pageManagerNode = document.getElementById("page-manager");
+ListenrForPages(pageManagerNode)
 
-chrome.storage.sync.onChanged.addListener(function (changes, namespace) {
+chrome.storage.sync.onChanged.addListener(function(changes, namespace) {
     setVideosVisibility(changes.removeShorts.newValue);
 });
-
-
