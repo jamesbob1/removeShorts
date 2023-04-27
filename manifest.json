@@ -17,7 +17,7 @@
             "js": [
                 "contentscript.js"
             ],
-            "run_at": "document_idle"
+            "run_at": "document_end"
         }
     ],
     "permissions": ["storage"],
