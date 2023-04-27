@@ -5,7 +5,11 @@ let videos = [];
 let hideShortsState;
 
 chrome.storage.sync.get(["removeShorts"], result => {
-    hideShortsState = result.removeShorts;
+    hideShortsState = !result.removeShorts;
+});
+
+chrome.storage.sync.onChanged.addListener(function(changes, namespace) {
+    setVideosVisibility(!changes.removeShorts.newValue);
 });
 
 function setVideosVisibility(state) {
@@ -87,7 +91,7 @@ function pageLoaded(pageSectionsContainer) {
 
 // Called when a new page is added
 function newPage(page) {
-    console.assert(page != null, "page is null");
+    console.assert(page !== null, "page is null");
 
     if (!(page.tagName == "YTD-BROWSE" && page.getAttribute("page-subtype") == "subscriptions")) {
         console.log(`unsupported page ${page.nodeName}`);
@@ -117,7 +121,7 @@ function newPage(page) {
 }
 
 function ListenrForPages(pageManager) {
-    console.warn(pageManager != null, "Page manager isn't available");
+    console.assert(pageManager !== null, "Page manager isn't available");
 
     // Updates when a new page is added.
     let pageManagerObserver = new MutationObserver(mutations => {
@@ -136,7 +140,3 @@ function ListenrForPages(pageManager) {
 
 let pageManagerNode = document.getElementById("page-manager");
 ListenrForPages(pageManagerNode)
-
-chrome.storage.sync.onChanged.addListener(function(changes, namespace) {
-    setVideosVisibility(changes.removeShorts.newValue);
-});
